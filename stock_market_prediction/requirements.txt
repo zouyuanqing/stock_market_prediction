@@ -1,0 +1,9 @@
+pandas
+numpy
+matplotlib
+yfinance
+openai==0.28.0
+requests
+statsmodels
+scikit-learn
+tensorflow
