@@ -95,5 +95,5 @@ stock_market_prediction/
 
 ## 联系方式
 
-作者：[zouyuanqing](mailto:zou.yuanqing@foxmail.com)  
+作者：[zouyuanqing](mailto:zou.yuanqing@foxmail.com)  邹源清
 邮箱：[zou.yuanqing@foxmail.com](mailto:zou.yuanqing@foxmail.com)
