@@ -17,7 +17,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 
 # 设置OpenAI API密钥
 openai.api_base = "https://api.deepseek.com"
-openai.api_key = "sk-85f686d431af46f7939d27f12cb12dd3"
+openai.api_key = os.getenv("DEEPSEEK_API_KEY")
 if openai.api_key is None:
     print("API key is missing. Please set the environment variable OPENAI_API_KEY.")
 
