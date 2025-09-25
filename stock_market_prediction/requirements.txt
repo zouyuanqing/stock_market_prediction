@@ -7,3 +7,6 @@ requests>=2.25.0
 statsmodels>=0.13.0
 scikit-learn>=1.0.0
 tensorflow>=2.15.0
+python-dotenv>=1.0.0
+# 添加markdown渲染支持
+markdown>=3.4.0
