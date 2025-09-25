@@ -14,6 +14,8 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
 from tensorflow.keras.callbacks import EarlyStopping
+import time
+import random
 
 # 设置OpenAI API密钥
 openai.api_base = "https://api.deepseek.com"
@@ -22,15 +24,42 @@ if openai.api_key is None:
     print("API key is missing. Please set the environment variable OPENAI_API_KEY.")
 
 # Fetch market data (10 years of data)
-def fetch_market_data(symbol, start_date, end_date):
-    try:
-        data = yf.download(symbol, start=start_date, end=end_date)
-        if data.empty:
-            raise ValueError(f"No data found for {symbol}")
-        return data
-    except Exception as e:
-        print(f"Error fetching data for {symbol}: {e}")
-        return None
+def fetch_market_data(symbol, start_date, end_date, max_retries=3, retry_delay=5):
+    """
+    从Yahoo Finance获取股票数据，包含重试机制和错误处理
+    
+    Args:
+        symbol: 股票代码
+        start_date: 开始日期
+        end_date: 结束日期
+        max_retries: 最大重试次数
+        retry_delay: 重试延迟时间（秒）
+    
+    Returns:
+        DataFrame: 股票数据
+    """
+    for attempt in range(max_retries):
+        try:
+            # 添加随机延迟避免频率限制
+            if attempt > 0:
+                time.sleep(retry_delay + random.uniform(0, 5))
+            
+            # 设置请求参数
+            data = yf.download(symbol, start=start_date, end=end_date, progress=False)
+            
+            if data.empty:
+                raise ValueError(f"No data found for {symbol}")
+            
+            print(f"Successfully fetched data for {symbol}")
+            return data
+            
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed for {symbol}: {e}")
+            if attempt < max_retries - 1:
+                print(f"Retrying in {retry_delay} seconds...")
+            else:
+                print(f"Failed to fetch data for {symbol} after {max_retries} attempts")
+                return None
 
 # Preprocess data, handling missing values and feature engineering
 def preprocess_data(data):
@@ -184,7 +213,7 @@ def create_gui():
         # Fetch data
         data = fetch_market_data(symbol, start_date, end_date)
         if data is None:
-            messagebox.showerror("Error", "Failed to fetch data")
+            messagebox.showerror("Error", "Failed to fetch data. Please check your network connection or try again later.")
             return
 
         # Data Preprocessing and Model Training
