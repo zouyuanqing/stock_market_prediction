@@ -1,0 +1,12 @@
+pandas>=1.3.0
+numpy>=1.21.0
+matplotlib>=3.4.0
+yfinance>=0.2.18
+openai==0.28.0
+requests>=2.25.0
+statsmodels>=0.13.0
+scikit-learn>=1.0.0
+tensorflow>=2.15.0
+python-dotenv>=1.0.0
+# 添加markdown渲染支持
+markdown>=3.4.0
