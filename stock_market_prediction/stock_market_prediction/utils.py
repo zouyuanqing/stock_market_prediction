@@ -150,87 +150,173 @@ def analyze_with_deepseek(data):
 def show_predictions_in_window(arima_forecast, lstm_forecast, analysis):
     root = tk.Tk()
     root.title("Stock Market Predictions and Analysis")
+    root.geometry("800x600")
 
-    # Creating the message content
-    arima_message = f"ARIMA forecast for the next 5 days: {arima_forecast}"
-    lstm_message = f"LSTM forecast for the stock market: {lstm_forecast}"
-    analysis_message = f"OpenAI Analysis Result:\n{analysis}"
+    # Create a notebook (tabbed interface)
+    notebook = ttk.Notebook(root)
+    notebook.pack(fill='both', expand=True, padx=10, pady=10)
 
-    # Display in a messagebox
-    messagebox.showinfo("Forecast Results", f"{arima_message}\n\n{lstm_message}\n\n{analysis_message}")
+    # ARIMA Results Tab
+    arima_frame = ttk.Frame(notebook)
+    notebook.add(arima_frame, text="ARIMA 预测结果")
+    
+    arima_text = tk.Text(arima_frame, wrap=tk.WORD)
+    arima_text.pack(fill='both', expand=True)
+    arima_text.insert(tk.END, f"ARIMA 预测未来5天股价:\n")
+    for i, price in enumerate(arima_forecast, 1):
+        arima_text.insert(tk.END, f"第{i}天: {price:.2f}\n")
+    arima_text.config(state=tk.DISABLED)
+
+    # LSTM Results Tab
+    lstm_frame = ttk.Frame(notebook)
+    notebook.add(lstm_frame, text="LSTM 预测结果")
+    
+    lstm_text = tk.Text(lstm_frame, wrap=tk.WORD)
+    lstm_text.pack(fill='both', expand=True)
+    lstm_text.insert(tk.END, f"LSTM 预测股价: {lstm_forecast[0]:.2f}\n")
+    lstm_text.config(state=tk.DISABLED)
+
+    # Analysis Results Tab
+    analysis_frame = ttk.Frame(notebook)
+    notebook.add(analysis_frame, text="AI 深度分析")
+    
+    analysis_text = tk.Text(analysis_frame, wrap=tk.WORD)
+    analysis_text.pack(fill='both', expand=True)
+    if analysis:
+        analysis_text.insert(tk.END, analysis)
+    else:
+        analysis_text.insert(tk.END, "暂无AI分析结果")
+    analysis_text.config(state=tk.DISABLED)
+
+    # Add scrollbars
+    for text_widget in [arima_text, lstm_text, analysis_text]:
+        scrollbar = tk.Scrollbar(text_widget, orient="vertical", command=text_widget.yview)
+        scrollbar.pack(side="right", fill="y")
+        text_widget.config(yscrollcommand=scrollbar.set)
+
     root.mainloop()
 
 # Plotting ARIMA and LSTM predictions
 def plot_predictions(data, arima_forecast, lstm_forecast):
     # ARIMA Forecast Plot
-    plt.figure(figsize=(10, 6))
-    plt.plot(data['Close'], label='Historical Data', color='blue')
-    plt.plot(np.arange(len(data), len(data) + len(arima_forecast)), arima_forecast, label='ARIMA Forecast', color='green')
-    plt.title('Stock Market ARIMA Forecast')
-    plt.xlabel('Time')
-    plt.ylabel('Price')
+    plt.figure(figsize=(12, 6))
+    plt.plot(data['Close'], label='历史数据', color='blue')
+    plt.plot(np.arange(len(data), len(data) + len(arima_forecast)), arima_forecast, label='ARIMA 预测', color='green', marker='o')
+    plt.title('股票市场 ARIMA 预测')
+    plt.xlabel('时间')
+    plt.ylabel('价格')
     plt.legend()
+    plt.grid(True)
     plt.show()
 
     # LSTM Forecast Plot
-    plt.figure(figsize=(10, 6))
-    plt.plot(data['Close'], label='Historical Data', color='blue')
-    plt.plot(np.arange(len(data), len(data) + 1), lstm_forecast, label='LSTM Forecast', color='red')
-    plt.title('Stock Market LSTM Forecast')
-    plt.xlabel('Time')
-    plt.ylabel('Price')
+    plt.figure(figsize=(12, 6))
+    plt.plot(data['Close'], label='历史数据', color='blue')
+    plt.plot(np.arange(len(data), len(data) + 1), lstm_forecast, label='LSTM 预测', color='red', marker='o', markersize=10)
+    plt.title('股票市场 LSTM 预测')
+    plt.xlabel('时间')
+    plt.ylabel('价格')
     plt.legend()
+    plt.grid(True)
     plt.show()
 
 # Create GUI for user input and interaction
 def create_gui():
     root = tk.Tk()
-    root.title("Stock Market Prediction")
+    root.title("股票市场预测工具")
+    root.geometry("500x300")
+
+    # Add padding to the main window
+    main_frame = ttk.Frame(root, padding="20")
+    main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+    # Configure grid weights for responsive design
+    root.columnconfigure(0, weight=1)
+    root.rowconfigure(0, weight=1)
+    main_frame.columnconfigure(1, weight=1)
 
     # Input for stock symbol
-    tk.Label(root, text="Enter Stock Symbol (e.g., XXXXXX.ss)").grid(row=0, column=0)
-    symbol_entry = tk.Entry(root)
-    symbol_entry.grid(row=0, column=1)
+    ttk.Label(main_frame, text="股票代码 (例如: AAPL, 000001.ss):").grid(row=0, column=0, sticky=tk.W, pady=5)
+    symbol_entry = ttk.Entry(main_frame, width=30)
+    symbol_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5)
 
     # Input for start date
-    tk.Label(root, text="Enter Start Date (YYYY-MM-DD)").grid(row=1, column=0)
-    start_date_entry = tk.Entry(root)
-    start_date_entry.grid(row=1, column=1)
+    ttk.Label(main_frame, text="开始日期 (YYYY-MM-DD):").grid(row=1, column=0, sticky=tk.W, pady=5)
+    start_date_entry = ttk.Entry(main_frame, width=30)
+    start_date_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5)
+    start_date_entry.insert(0, "2020-01-01")  # Default value
 
     # Input for end date
-    tk.Label(root, text="Enter End Date (YYYY-MM-DD)").grid(row=2, column=0)
-    end_date_entry = tk.Entry(root)
-    end_date_entry.grid(row=2, column=1)
+    ttk.Label(main_frame, text="结束日期 (YYYY-MM-DD):").grid(row=2, column=0, sticky=tk.W, pady=5)
+    end_date_entry = ttk.Entry(main_frame, width=30)
+    end_date_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5)
+    end_date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))  # Default to today
 
     # Progress Bar
     progress = tk.DoubleVar()
-    progress_bar = ttk.Progressbar(root, variable=progress, maximum=100)
-    progress_bar.grid(row=3, column=0, columnspan=2)
+    progress_bar = ttk.Progressbar(main_frame, variable=progress, maximum=100, length=300)
+    progress_bar.grid(row=3, column=0, columnspan=2, pady=10, sticky=(tk.W, tk.E))
+
+    # Status Label
+    status_label = ttk.Label(main_frame, text="准备就绪")
+    status_label.grid(row=4, column=0, columnspan=2, pady=5)
+
+    def update_status(text):
+        status_label.config(text=text)
+        root.update_idletasks()
 
     def on_start_button_click():
-        symbol = symbol_entry.get()
-        start_date = start_date_entry.get()
-        end_date = end_date_entry.get()
+        symbol = symbol_entry.get().strip()
+        start_date = start_date_entry.get().strip()
+        end_date = end_date_entry.get().strip()
 
         # Validate inputs
         if not symbol or not start_date or not end_date:
-            messagebox.showerror("Input Error", "All fields are required.")
+            messagebox.showerror("输入错误", "所有字段都是必填项！")
             return
+
+        # Validate date format
+        try:
+            datetime.strptime(start_date, "%Y-%m-%d")
+            datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            messagebox.showerror("日期格式错误", "请输入正确的日期格式 (YYYY-MM-DD)")
+            return
+
+        # Update status
+        update_status("正在获取股票数据...")
 
         # Fetch data
         data = fetch_market_data(symbol, start_date, end_date)
         if data is None:
-            messagebox.showerror("Error", "Failed to fetch data. Please check your network connection or try again later.")
+            messagebox.showerror("数据获取失败", 
+                               "无法获取股票数据。可能的原因：\n"
+                               "1. 网络连接问题\n"
+                               "2. 股票代码不正确\n"
+                               "3. 请求频率过高，请稍后再试\n"
+                               "4. Yahoo Finance 服务暂时不可用")
+            update_status("数据获取失败")
             return
 
+        update_status("正在处理数据和训练模型...")
+
         # Data Preprocessing and Model Training
-        data_scaled, scaler = preprocess_data(data)
-        arima_forecast = arima_predict(data_scaled)
-        lstm_forecast = lstm_predict(data_scaled)
+        try:
+            data_scaled, scaler = preprocess_data(data)
+            arima_forecast = arima_predict(data_scaled)
+            lstm_forecast = lstm_predict(data_scaled)
+        except Exception as e:
+            messagebox.showerror("模型训练错误", f"在训练模型时发生错误: {str(e)}")
+            update_status("模型训练失败")
+            return
+
+        update_status("正在获取AI深度分析...")
 
         # Perform Analysis using OpenAI
         analysis = analyze_with_deepseek(data)
         print(f"OpenAI analysis result: {analysis}")
+
+        update_status("完成！正在显示结果...")
 
         # Show predictions and analysis in window
         show_predictions_in_window(arima_forecast, lstm_forecast, analysis)
@@ -238,7 +324,15 @@ def create_gui():
         # Plot the predictions
         plot_predictions(data, arima_forecast, lstm_forecast)
 
+        update_status("准备就绪")
+
     # Start button to trigger prediction
-    tk.Button(root, text="Start", command=on_start_button_click).grid(row=4, column=0, columnspan=2)
+    start_button = ttk.Button(main_frame, text="开始预测", command=on_start_button_click)
+    start_button.grid(row=5, column=0, columnspan=2, pady=20)
+
+    # Add tooltips
+    symbol_entry.tooltip = "输入股票代码，例如 AAPL (苹果) 或 000001.ss (平安银行)"
+    start_date_entry.tooltip = "数据开始日期，格式 YYYY-MM-DD"
+    end_date_entry.tooltip = "数据结束日期，格式 YYYY-MM-DD"
 
     root.mainloop()
