@@ -24,9 +24,9 @@ if openai.api_key is None:
     print("API key is missing. Please set the environment variable OPENAI_API_KEY.")
 
 # Fetch market data (10 years of data)
-def fetch_market_data(symbol, start_date, end_date, max_retries=3, retry_delay=5):
+def fetch_market_data(symbol, start_date, end_date, max_retries=3, retry_delay=5, proxies=None):
     """
-    从Yahoo Finance获取股票数据，包含重试机制和错误处理
+    从Yahoo Finance获取股票数据，包含重试机制、代理支持和错误处理
     
     Args:
         symbol: 股票代码
@@ -34,10 +34,17 @@ def fetch_market_data(symbol, start_date, end_date, max_retries=3, retry_delay=5
         end_date: 结束日期
         max_retries: 最大重试次数
         retry_delay: 重试延迟时间（秒）
+        proxies: 代理设置
     
     Returns:
         DataFrame: 股票数据
     """
+    # 设置代理（如果提供）
+    if proxies:
+        yf.pdr_override()
+        import yfinance.shared as yfs
+        yfs.session.proxies = proxies
+    
     for attempt in range(max_retries):
         try:
             # 添加随机延迟避免频率限制
