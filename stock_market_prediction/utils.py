@@ -49,6 +49,9 @@ def fetch_market_data(symbol, start_date, end_date, max_retries=5, retry_delay=1
     """
     从多个数据源获取股票数据，包含重试机制、代理支持和错误处理
     
+    注意：Yahoo Finance 和 Stooq 在某些地区可能存在访问限制，
+    如果遇到连接问题，建议使用代理或配置其他数据源。
+    
     Args:
         symbol: 股票代码
         start_date: 开始日期
