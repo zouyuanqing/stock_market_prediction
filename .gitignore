@@ -1,18 +1,31 @@
 ```
-# Python
+# Environment variables
+.env
+.env.local
+.env.*
+
+# Dependencies
+.venv/
+venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Logs and temp files
-*.log
-*.tmp
+# Build artifacts
+dist/
+build/
+*.egg-info/
 
-# Environment
-.env
-.env.local
-*.env.*
+# Logs
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
 
 # Coverage
 .coverage
@@ -22,4 +35,8 @@ htmlcov/
 # Testing
 .pytest_cache/
 .mypy_cache/
+
+# OS
+.DS_Store
+Thumbs.db
 ```

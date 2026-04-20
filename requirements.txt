@@ -1,0 +1,10 @@
+pandas
+numpy
+yfinance
+statsmodels
+scikit-learn
+matplotlib
+python-dotenv
+duckduckgo-search
+torch
+requests
