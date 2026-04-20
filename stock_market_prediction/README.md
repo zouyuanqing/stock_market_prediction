@@ -1,17 +1,32 @@
-# Stock Market Prediction Tool
+# Stock Market Prediction Tool v2.0
 
 ## 项目简介
 
-这是一个基于 ARIMA 和 LSTM 模型的股票市场预测工具。该工具能够从 Yahoo Finance 获取股票数据，利用 ARIMA 和 LSTM 模型进行预测，并通过 OpenAI 的 DeepSeek API 提供深度分析。工具还提供了一个简单的 GUI 界面，方便用户进行交互。
+这是一个基于 ARIMA 和 LSTM 模型的股票市场预测工具，经过全面重构，提供更可靠的量化分析逻辑。该工具能够从 Yahoo Finance 获取股票数据，利用多种模型进行预测，并通过 DeepSeek API 提供深度分析。
 
-## 功能特性
+## 主要改进 (v2.0)
 
-- **数据获取**：从 Yahoo Finance 获取股票数据，并支持多种股票数据源。
-- **数据预处理**：包括缺失值处理、特征工程、数据规范化等预处理操作，确保模型训练的高效性。
-- **ARIMA 模型**：基于 ARIMA 模型进行时间序列分析，提供股票未来走势的预测。
-- **LSTM 模型**：采用 LSTM（长短期记忆）神经网络模型，利用深度学习技术对股票价格进行预测。
-- **OpenAI 深度分析**：调用 OpenAI 的 DeepSeek API 进行对预测结果和股票市场的深度分析。
-- **GUI 界面**：提供简洁直观的图形用户界面，用户可以方便地输入参数并查看预测结果。
+### 核心重构
+- **面向对象设计**: 引入 `StockPredictor` 类，封装完整的预测流程
+- **改进的量化分析**: 
+  - 自动 ARIMA 参数优化（基于 AIC 准则）
+  - 更可靠的数据预处理和反规范化处理
+  - 完整的错误处理和降级策略
+- **技术指标系统**: 新增完整的技术指标计算模块
+  - 移动平均线 (MA5, MA10, MA20)
+  - 指数移动平均线 (EMA12, EMA26)
+  - MACD、RSI、布林带
+  - 成交量分析
+
+### API 集成改进
+- 支持新版 OpenAI API 格式
+- 更智能的 prompt 工程，包含技术指标和模型预测对比
+- 优雅降级：API 不可用时不影响核心功能
+
+### 模块化设计
+- 可选的 TensorFlow 依赖（LSTM 功能）
+- 向后兼容的函数接口
+- 清晰的模块分离（utils、gui）
 
 ## 安装步骤
 
@@ -22,78 +37,104 @@
    ```
 
 2. **安装依赖**：
-   在项目根目录下，使用以下命令安装所需的 Python 库：
    ```bash
    pip install -r requirements.txt
    ```
+   
+   可选：安装 TensorFlow 以启用 LSTM 预测
+   ```bash
+   pip install tensorflow-cpu
+   ```
 
-3. **运行项目**：
-   启动项目的主程序，打开 GUI 界面：
+3. **配置 API（可选）**：
+   在项目根目录创建 `.env` 文件：
+   ```
+   DEEPSEEK_API_KEY=your_api_key_here
+   DEEPSEEK_API_BASE=https://api.deepseek.com
+   ```
+
+4. **运行项目**：
    ```bash
    python -m stock_market_prediction.main
    ```
 
 ## 使用方法
 
-1. 运行项目后，会弹出一个 GUI 窗口。
-2. 在界面中输入股票代码（如 AAPL）、开始日期和结束日期。
-3. 点击 "Start" 按钮，程序将自动从 Yahoo Finance 获取数据，并开始训练 ARIMA 和 LSTM 模型。
-4. 预测结果将显示在界面中，包括 ARIMA 和 LSTM 的预测值。
-5. OpenAI 的 DeepSeek API 会对预测结果进行深度分析，生成相应的分析报告，展示在界面上。
+### 命令行使用
+
+```python
+from stock_market_prediction.utils import StockPredictor
+
+# 创建预测器（可传入 API key）
+predictor = StockPredictor(api_key="your_api_key")
+
+# 执行完整分析
+results = predictor.run_full_analysis(
+    symbol="AAPL",
+    start_date="2023-01-01",
+    end_date="2024-01-01"
+)
+
+# 查看结果
+if results['success']:
+    print("ARIMA 预测:", results['arima_forecast'])
+    print("LSTM 预测:", results['lstm_forecast'])
+    print("技术指标:", results['technical_indicators'])
+    print("AI 分析:", results['ai_analysis'])
+```
+
+### GUI 使用
+
+运行后会出现图形界面，输入参数后点击"开始分析"即可。
 
 ## 项目结构
 
 ```
 stock_market_prediction/
-├── stock_market_prediction/   # 主包目录
-│   ├── __init__.py            # 包初始化文件
-│   ├── main.py                # 主程序入口
-│   ├── utils.py               # 业务逻辑模块
-├── tests/                     # 测试目录
-│   ├── __init__.py            # 测试包初始化文件
-│   ├── test_utils.py          # 测试模块
-├── requirements.txt           # 依赖文件
-├── setup.py                   # 打包配置文件
-├── README.md                  # 项目说明文档
+├── stock_market_prediction/
+│   ├── __init__.py
+│   ├── main.py              # 程序入口
+│   ├── utils.py             # 核心预测逻辑（StockPredictor 类）
+│   └── gui.py               # GUI 界面
+├── tests/
+│   ├── test_utils.py        # 原有测试
+│   └── test_stock_predictor.py  # 新测试
+├── requirements.txt
+├── README.md
+└── UPDATE_LOG.md
 ```
 
 ## 依赖说明
 
-- **Python 3.8+**
-- **pandas**：数据处理与分析
-- **numpy**：科学计算
-- **matplotlib**：绘图工具
-- **yfinance**：获取 Yahoo Finance 数据
-- **openai**：调用 OpenAI API
-- **requests**：处理 HTTP 请求
-- **statsmodels**：ARIMA 模型实现
-- **scikit-learn**：机器学习工具包
-- **tensorflow**：深度学习框架
+**必需**:
+- Python 3.8+
+- pandas
+- numpy
+- matplotlib
+- yfinance
+- statsmodels
+- scikit-learn
+- python-dotenv
+- openai
+
+**可选**:
+- tensorflow (用于 LSTM 预测)
 
 ## 贡献指南
 
-欢迎贡献代码或报告问题！请按照以下步骤操作：
+欢迎贡献！请遵循以下步骤：
 
-1. **Fork 项目仓库**。
-2. **创建一个新的分支**：
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-3. **提交更改**：
-   ```bash
-   git commit -m "Add your feature"
-   ```
-4. **推送分支**：
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-5. **提交 Pull Request**。
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
 
 ## 许可证
 
-本项目基于 MIT 许可证开源。详情请参阅 LICENSE 文件。
+MIT License
 
 ## 联系方式
 
-作者：[zouyuanqing](mailto:zou.yuanqing@foxmail.com)  邹源清
-邮箱：[zou.yuanqing@foxmail.com](mailto:zou.yuanqing@foxmail.com)
+作者：邹源清 (zouyuanqing)  
+邮箱：zou.yuanqing@foxmail.com
