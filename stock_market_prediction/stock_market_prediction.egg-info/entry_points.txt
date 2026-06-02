@@ -1,0 +1,2 @@
+[console_scripts]
+stock_market_prediction = stock_market_prediction.main:main
