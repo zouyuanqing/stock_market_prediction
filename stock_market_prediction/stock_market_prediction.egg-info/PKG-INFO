@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: stock_market_prediction
+Version: 0.1
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: matplotlib
+Requires-Dist: yfinance
+Requires-Dist: openai
+Requires-Dist: requests
+Requires-Dist: statsmodels
+Requires-Dist: scikit-learn
+Requires-Dist: tensorflow
