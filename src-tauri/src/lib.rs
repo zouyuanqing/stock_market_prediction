@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 // 股票数据结构
@@ -21,13 +22,20 @@ pub struct TechnicalIndicators {
     pub macd: f64,
 }
 
+// 预测结果结构
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PredictionResult {
+    pub arima: Vec<f64>,
+    pub lstm: f64,
+}
+
 // AI 分析结果结构
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AnalysisResult {
     pub summary: String,
     pub trend: String,
     pub indicators: TechnicalIndicators,
-    pub prediction: String,
+    pub prediction: PredictionResult,
     pub advice: String,
     pub risk: String,
 }
@@ -47,11 +55,11 @@ async fn fetch_stock_data(
     start_date: String,
     end_date: String,
     source: String,
-) -> Result<Vec<StockData>, String> {
+) -> Result<Vec<StockData>> {
     match source.as_str() {
         "yahoo" => fetch_from_yahoo(&symbol, &start_date, &end_date).await,
         "stooq" => fetch_from_stooq(&symbol, &start_date, &end_date).await,
-        _ => Err(format!("Unsupported data source: {}", source)),
+        _ => Err(anyhow::anyhow!("Unsupported data source: {}", source)),
     }
 }
 
@@ -60,18 +68,18 @@ async fn fetch_from_yahoo(
     symbol: &str,
     start_date: &str,
     end_date: &str,
-) -> Result<Vec<StockData>, String> {
+) -> Result<Vec<StockData>> {
     let client = reqwest::Client::new();
     
     let start_timestamp = chrono::NaiveDate::parse_from_str(start_date, "%Y-%m-%d")
-        .map_err(|e| format!("Invalid start date: {}", e))?
+        .context("Invalid start date format")?
         .and_hms_opt(0, 0, 0)
         .unwrap()
         .and_utc()
         .timestamp();
     
     let end_timestamp = chrono::NaiveDate::parse_from_str(end_date, "%Y-%m-%d")
-        .map_err(|e| format!("Invalid end date: {}", e))?
+        .context("Invalid end date format")?
         .and_hms_opt(23, 59, 59)
         .unwrap()
         .and_utc()
@@ -87,16 +95,16 @@ async fn fetch_from_yahoo(
         .header("User-Agent", "Mozilla/5.0")
         .send()
         .await
-        .map_err(|e| format!("Failed to fetch data: {}", e))?;
+        .context("Failed to fetch data from Yahoo Finance")?;
 
     if !response.status().is_success() {
-        return Err(format!("HTTP error: {}", response.status()));
+        return Err(anyhow::anyhow!("HTTP error: {}", response.status()));
     }
 
     let data: serde_json::Value = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .context("Failed to parse Yahoo Finance response")?;
 
     let mut stocks = Vec::new();
 
@@ -149,7 +157,7 @@ async fn fetch_from_stooq(
     symbol: &str,
     start_date: &str,
     end_date: &str,
-) -> Result<Vec<StockData>, String> {
+) -> Result<Vec<StockData>> {
     let formatted_symbol = symbol.to_lowercase();
     let url = format!(
         "https://stooq.com/q/d/l/?s={}&d1={}&d2={}&i=d",
@@ -164,16 +172,16 @@ async fn fetch_from_stooq(
         .header("User-Agent", "Mozilla/5.0")
         .send()
         .await
-        .map_err(|e| format!("Failed to fetch data: {}", e))?;
+        .context("Failed to fetch data from Stooq")?;
 
     if !response.status().is_success() {
-        return Err(format!("HTTP error: {}", response.status()));
+        return Err(anyhow::anyhow!("HTTP error: {}", response.status()));
     }
 
     let text = response
         .text()
         .await
-        .map_err(|e| format!("Failed to read response: {}", e))?;
+        .context("Failed to read Stooq response")?;
 
     let mut stocks = Vec::new();
     let lines: Vec<&str> = text.lines().collect();
@@ -204,9 +212,9 @@ async fn fetch_from_stooq(
 
 // 计算技术指标
 #[tauri::command]
-async fn calculate_indicators(data: Vec<StockData>) -> Result<TechnicalIndicators, String> {
+async fn calculate_indicators(data: Vec<StockData>) -> Result<TechnicalIndicators> {
     if data.len() < 20 {
-        return Err("Not enough data to calculate indicators".to_string());
+        return Err(anyhow::anyhow!("Not enough data to calculate indicators (need at least 20 days)"));
     }
 
     let closes: Vec<f64> = data.iter().map(|d| d.close).collect();
@@ -258,11 +266,109 @@ fn calculate_ema(data: &[f64], period: usize) -> f64 {
     ema
 }
 
+// ARIMA 预测（简化版本 - 使用移动平均和趋势分析）
+#[tauri::command]
+async fn predict_arima(data: Vec<StockData>, days: usize) -> Result<Vec<f64>> {
+    if data.len() < 30 {
+        return Err(anyhow::anyhow!("Not enough data for ARIMA prediction (need at least 30 days)"));
+    }
+
+    let closes: Vec<f64> = data.iter().map(|d| d.close).collect();
+    let len = closes.len();
+    
+    // 计算短期和长期移动平均
+    let ma5: f64 = closes[len - 5..].iter().sum::<f64>() / 5.0;
+    let ma20: f64 = closes[len - 20..].iter().sum::<f64>() / 20.0;
+    
+    // 计算趋势（最近5天的平均变化）
+    let mut changes = Vec::new();
+    for i in (len - 5)..len {
+        if i > 0 {
+            changes.push(closes[i] - closes[i - 1]);
+        }
+    }
+    let avg_change = changes.iter().sum::<f64>() / changes.len() as f64;
+    
+    // 计算波动率（标准差）
+    let mean = closes[len - 20..].iter().sum::<f64>() / 20.0;
+    let variance = closes[len - 20..].iter()
+        .map(|x| (x - mean).powi(2))
+        .sum::<f64>() / 20.0;
+    let volatility = variance.sqrt();
+    
+    // 生成预测
+    let mut predictions = Vec::new();
+    let last_price = closes[len - 1];
+    
+    for i in 0..days {
+        // 基于趋势和移动平均的预测
+        let trend_factor = avg_change * (i + 1) as f64;
+        let ma_factor = (ma5 - ma20) * 0.1; // 移动平均交叉信号
+        
+        // 添加一些随机性（基于波动率）
+        let noise = volatility * 0.1 * ((i as f64 * 0.5).sin());
+        
+        let prediction = last_price + trend_factor + ma_factor + noise;
+        predictions.push((prediction * 100.0).round() / 100.0); // 保留2位小数
+    }
+    
+    Ok(predictions)
+}
+
+// LSTM 预测（简化版本 - 使用神经网络风格的加权平均）
+#[tauri::command]
+async fn predict_lstm(data: Vec<StockData>) -> Result<f64> {
+    if data.len() < 60 {
+        return Err(anyhow::anyhow!("Not enough data for LSTM prediction (need at least 60 days)"));
+    }
+
+    let closes: Vec<f64> = data.iter().map(|d| d.close).collect();
+    let len = closes.len();
+    
+    // 模拟 LSTM 的门控机制
+    // 遗忘门：决定保留多少历史信息
+    let forget_weight = 0.7;
+    // 输入门：决定接受多少新信息
+    let input_weight = 0.3;
+    // 输出门：决定输出多少信息
+    let output_weight = 0.5;
+    
+    // 计算不同时间窗口的特征
+    let short_term: f64 = closes[len - 10..].iter().sum::<f64>() / 10.0;
+    let medium_term: f64 = closes[len - 30..].iter().sum::<f64>() / 30.0;
+    let long_term: f64 = closes[len - 60..].iter().sum::<f64>() / 60.0;
+    
+    // 计算趋势强度
+    let recent_trend = (closes[len - 1] - closes[len - 10]) / closes[len - 10];
+    let medium_trend = (closes[len - 1] - closes[len - 30]) / closes[len - 30];
+    
+    // 模拟 LSTM 的记忆单元
+    let cell_state = short_term * forget_weight + 
+                     medium_term * input_weight + 
+                     long_term * (1.0 - input_weight);
+    
+    // 应用输出门
+    let output = cell_state * output_weight + 
+                 closes[len - 1] * (1.0 - output_weight);
+    
+    // 基于趋势调整预测
+    let trend_adjustment = if recent_trend > 0.0 && medium_trend > 0.0 {
+        1.0 + (recent_trend * 0.5).min(0.05) // 上涨趋势，最多加5%
+    } else if recent_trend < 0.0 && medium_trend < 0.0 {
+        1.0 + (recent_trend * 0.5).max(-0.05) // 下跌趋势，最多减5%
+    } else {
+        1.0
+    };
+    
+    let prediction = output * trend_adjustment;
+    
+    Ok((prediction * 100.0).round() / 100.0)
+}
+
 // 获取可用模型列表
 #[tauri::command]
-async fn fetch_models(api_key: String, api_base: String) -> Result<Vec<ModelInfo>, String> {
+async fn fetch_models(api_key: String, api_base: String) -> Result<Vec<ModelInfo>> {
     if api_key.is_empty() {
-        // 返回默认模型列表
         return Ok(vec![
             ModelInfo {
                 id: "deepseek-chat".to_string(),
@@ -285,16 +391,16 @@ async fn fetch_models(api_key: String, api_base: String) -> Result<Vec<ModelInfo
         .header("Authorization", format!("Bearer {}", api_key))
         .send()
         .await
-        .map_err(|e| format!("Failed to fetch models: {}", e))?;
+        .context("Failed to fetch models from API")?;
 
     if !response.status().is_success() {
-        return Err(format!("API error: {}", response.status()));
+        return Err(anyhow::anyhow!("API error: {}", response.status()));
     }
 
     let data: serde_json::Value = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .context("Failed to parse models response")?;
 
     let mut models = Vec::new();
     
@@ -323,25 +429,32 @@ async fn analyze_with_ai(
     api_key: String,
     api_base: String,
     model: String,
-) -> Result<AnalysisResult, String> {
+) -> Result<AnalysisResult> {
     if api_key.is_empty() {
+        // 没有 API Key 时，返回本地分析结果
+        let indicators = calculate_indicators(data.clone()).await?;
+        let arima_predictions = predict_arima(data.clone(), 5).await?;
+        let lstm_prediction = predict_lstm(data.clone()).await?;
+        
         return Ok(AnalysisResult {
-            summary: "请配置 DeepSeek API 密钥以启用 AI 分析功能".to_string(),
-            trend: "N/A".to_string(),
-            indicators: TechnicalIndicators {
-                ma5: 0.0,
-                ma10: 0.0,
-                ma20: 0.0,
-                rsi: 50.0,
-                macd: 0.0,
+            summary: "⚠️ 未配置 API Key，仅显示本地技术分析结果。\n\n配置 DeepSeek 或 OpenAI API 后可获得 AI 深度分析。".to_string(),
+            trend: "基于技术指标分析".to_string(),
+            indicators,
+            prediction: PredictionResult {
+                arima: arima_predictions,
+                lstm: lstm_prediction,
             },
-            prediction: "N/A".to_string(),
-            advice: "N/A".to_string(),
+            advice: "请配置 AI API 以获取详细操作建议".to_string(),
             risk: "投资有风险，入市需谨慎".to_string(),
         });
     }
 
     let client = reqwest::Client::new();
+    
+    // 计算技术指标
+    let indicators = calculate_indicators(data.clone()).await?;
+    let arima_predictions = predict_arima(data.clone(), 5).await?;
+    let lstm_prediction = predict_lstm(data.clone()).await?;
     
     let last_5_days: Vec<&StockData> = data.iter().rev().take(5).collect();
     let data_summary = serde_json::to_string(&last_5_days)
@@ -352,6 +465,19 @@ async fn analyze_with_ai(
 
 ## 最近5天数据
 {}
+
+## 技术指标
+- MA5: {:.2}
+- MA10: {:.2}
+- MA20: {:.2}
+- RSI: {:.2}
+- MACD: {:.4}
+
+## ARIMA 预测（未来5天）
+{:?}
+
+## LSTM 预测
+{:.2}
 
 ## 要求
 请用 Markdown 格式输出，包含以下章节：
@@ -366,14 +492,18 @@ async fn analyze_with_ai(
 解读 MA、RSI、MACD 等指标含义
 
 ### 🔮 未来预测
-基于技术分析给出未来5天预测
+结合 ARIMA 和 LSTM 预测结果给出综合预测
 
 ### 💼 操作建议
 给出具体的操作建议
 
 ### ⚠️ 风险提示
 列出主要风险因素"#,
-        data_summary
+        data_summary,
+        indicators.ma5, indicators.ma10, indicators.ma20,
+        indicators.rsi, indicators.macd,
+        arima_predictions,
+        lstm_prediction
     );
 
     let request_body = serde_json::json!({
@@ -392,17 +522,17 @@ async fn analyze_with_ai(
         .json(&request_body)
         .send()
         .await
-        .map_err(|e| format!("Failed to call AI API: {}", e))?;
+        .context("Failed to call AI API")?;
 
     if !response.status().is_success() {
         let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("AI API error: {}", error_text));
+        return Err(anyhow::anyhow!("AI API error: {}", error_text));
     }
 
     let response_json: serde_json::Value = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse AI response: {}", e))?;
+        .context("Failed to parse AI response")?;
 
     let analysis_text = response_json["choices"][0]["message"]["content"]
         .as_str()
@@ -411,17 +541,14 @@ async fn analyze_with_ai(
 
     Ok(AnalysisResult {
         summary: analysis_text,
-        trend: "Based on technical analysis".to_string(),
-        indicators: TechnicalIndicators {
-            ma5: 0.0,
-            ma10: 0.0,
-            ma20: 0.0,
-            rsi: 50.0,
-            macd: 0.0,
+        trend: "基于技术分析".to_string(),
+        indicators,
+        prediction: PredictionResult {
+            arima: arima_predictions,
+            lstm: lstm_prediction,
         },
-        prediction: "See analysis summary".to_string(),
-        advice: "Consult with a financial advisor".to_string(),
-        risk: "Investment involves risk".to_string(),
+        advice: "详见分析报告".to_string(),
+        risk: "投资有风险，入市需谨慎".to_string(),
     })
 }
 
@@ -432,6 +559,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             fetch_stock_data,
             calculate_indicators,
+            predict_arima,
+            predict_lstm,
             fetch_models,
             analyze_with_ai
         ])

@@ -62,8 +62,8 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/zouyuanqing/stock-predictor.git
-cd stock-predictor
+git clone https://github.com/zouyuanqing/stock_market_prediction.git
+cd stock_market_prediction
 
 # 2. 安装依赖
 pnpm install
@@ -258,4 +258,4 @@ A:
 
 ## 📈 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=zouyuanqing/stock-predictor&type=Date)](https://star-history.com/#zouyuanqing/stock-predictor&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=zouyuanqing/stock_market_prediction&type=Date)](https://star-history.com/#zouyuanqing/stock_market_prediction&Date)
