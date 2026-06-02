@@ -47,6 +47,23 @@
 | **后端语言** | Rust |
 | **HTTP 客户端** | reqwest |
 | **包管理器** | pnpm |
+| **预测引擎** | Python (ARIMA/LSTM Sidecar) |
+
+### 🐍 Python Sidecar 架构
+
+ARIMA 和 LSTM 预测使用 Python Sidecar 模式：
+- Rust 通过 `tokio::process::Command` 调用 Python 脚本
+- 数据通过 stdin/stdout JSON 传递
+- 支持 pmdarima 自动 ARIMA 阶数选择
+- PyTorch LSTM 模型，2 层结构
+
+```
+┌─────────────┐     stdin JSON      ┌─────────────────┐
+│   Rust      │ ──────────────────> │  Python Script  │
+│  (Tauri)    │                     │  (Sidecar)      │
+│             │ <────────────────── │                 │
+└─────────────┘     stdout JSON     └─────────────────┘
+```
 
 ---
 
@@ -56,6 +73,7 @@
 
 - [Node.js](https://nodejs.org/) 18+
 - [Rust](https://www.rust-lang.org/tools/install) 1.70+
+- [Python](https://www.python.org/) 3.9+（用于 ARIMA/LSTM 预测）
 - [pnpm](https://pnpm.io/) (推荐)
 
 ### 安装步骤
@@ -68,7 +86,10 @@ cd stock_market_prediction
 # 2. 安装依赖
 pnpm install
 
-# 3. 开发模式运行
+# 3. 安装 Python 预测依赖
+pip install -r src-tauri/python/requirements.txt
+
+# 4. 开发模式运行
 pnpm tauri dev
 
 # 4. 构建生产版本
