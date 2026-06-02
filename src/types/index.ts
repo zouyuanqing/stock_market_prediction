@@ -19,7 +19,7 @@ export interface AnalysisResult {
   summary: string;
   trend: string;
   indicators: TechnicalIndicators;
-  prediction: string;
+  prediction: PredictionResult;
   advice: string;
   risk: string;
 }
@@ -42,18 +42,3 @@ export interface ModelInfo {
 
 // 数据源类型
 export type DataSource = "yahoo" | "stooq" | "alpha_vantage";
-
-// 应用状态类型
-export interface AppState {
-  loading: boolean;
-  error: string | null;
-  stockData: StockData[];
-  predictions: PredictionResult | null;
-  analysis: AnalysisResult | null;
-}
-
-// API 配置类型
-export interface ApiConfig {
-  deepseekApiKey: string;
-  deepseekApiBase: string;
-}

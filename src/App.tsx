@@ -4,7 +4,7 @@ import { StockChart } from "./components/StockChart";
 import { PredictionPanel } from "./components/PredictionPanel";
 import { AnalysisPanel } from "./components/AnalysisPanel";
 import { Header } from "./components/Header";
-import { StockData, AnalysisResult, TechnicalIndicators, ModelInfo } from "./types";
+import { StockData, AnalysisResult, TechnicalIndicators, ModelInfo, PredictionResult } from "./types";
 
 function App() {
   const [loading, setLoading] = useState(false);
@@ -12,6 +12,7 @@ function App() {
   const [stockData, setStockData] = useState<StockData[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [indicators, setIndicators] = useState<TechnicalIndicators | null>(null);
+  const [predictions, setPredictions] = useState<PredictionResult | null>(null);
   const [symbol, setSymbol] = useState("AAPL");
   const [startDate, setStartDate] = useState("2023-01-01");
   const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
@@ -43,7 +44,6 @@ function App() {
       }
     } catch (err) {
       console.error("Failed to fetch models:", err);
-      // 使用默认模型列表
       setModels([
         { id: "deepseek-chat", name: "DeepSeek Chat", owned_by: "deepseek" },
         { id: "deepseek-coder", name: "DeepSeek Coder", owned_by: "deepseek" },
@@ -53,7 +53,6 @@ function App() {
     }
   }, [apiKey, apiBase, selectedModel]);
 
-  // API Key 或 Base 变化时获取模型列表
   useEffect(() => {
     const timer = setTimeout(() => {
       if (apiKey) {
@@ -83,6 +82,22 @@ function App() {
         data,
       });
       setIndicators(ind);
+
+      // ARIMA 预测
+      const arimaPred = await invoke<number[]>("predict_arima", {
+        data,
+        days: 5,
+      });
+
+      // LSTM 预测
+      const lstmPred = await invoke<number>("predict_lstm", {
+        data,
+      });
+
+      setPredictions({
+        arima: arimaPred,
+        lstm: lstmPred,
+      });
 
       // 调用 AI 分析
       const analysisResult = await invoke<AnalysisResult>("analyze_with_ai", {
@@ -132,9 +147,6 @@ function App() {
                     placeholder="https://api.deepseek.com"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    DeepSeek、OpenAI 或其他兼容 API 的地址
-                  </p>
                 </div>
                 
                 <div>
@@ -157,9 +169,6 @@ function App() {
                       {loadingModels ? "加载中..." : "刷新模型"}
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    填入后自动拉取可用模型列表
-                  </p>
                 </div>
               </div>
               
@@ -295,11 +304,13 @@ function App() {
           </div>
         )}
 
-        {/* 图表区域 */}
+        {/* 图表和预测区域 */}
         {stockData.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <StockChart data={stockData} title="📈 历史价格走势" />
-            {indicators && <PredictionPanel indicators={indicators} />}
+            {indicators && predictions && (
+              <PredictionPanel indicators={indicators} predictions={predictions} />
+            )}
           </div>
         )}
 
