@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
 // 股票数据结构
@@ -48,6 +48,11 @@ pub struct ModelInfo {
     pub owned_by: String,
 }
 
+// 辅助函数：将 anyhow::Error 转换为 String
+fn to_string_error<T>(result: anyhow::Result<T>) -> Result<T, String> {
+    result.map_err(|e| format!("{:#}", e))
+}
+
 // 获取股票数据
 #[tauri::command]
 async fn fetch_stock_data(
@@ -55,7 +60,16 @@ async fn fetch_stock_data(
     start_date: String,
     end_date: String,
     source: String,
-) -> Result<Vec<StockData>> {
+) -> Result<Vec<StockData>, String> {
+    to_string_error(fetch_stock_data_inner(symbol, start_date, end_date, source).await)
+}
+
+async fn fetch_stock_data_inner(
+    symbol: String,
+    start_date: String,
+    end_date: String,
+    source: String,
+) -> anyhow::Result<Vec<StockData>> {
     match source.as_str() {
         "yahoo" => fetch_from_yahoo(&symbol, &start_date, &end_date).await,
         "stooq" => fetch_from_stooq(&symbol, &start_date, &end_date).await,
@@ -68,7 +82,7 @@ async fn fetch_from_yahoo(
     symbol: &str,
     start_date: &str,
     end_date: &str,
-) -> Result<Vec<StockData>> {
+) -> anyhow::Result<Vec<StockData>> {
     let client = reqwest::Client::new();
     
     let start_timestamp = chrono::NaiveDate::parse_from_str(start_date, "%Y-%m-%d")
@@ -157,7 +171,7 @@ async fn fetch_from_stooq(
     symbol: &str,
     start_date: &str,
     end_date: &str,
-) -> Result<Vec<StockData>> {
+) -> anyhow::Result<Vec<StockData>> {
     let formatted_symbol = symbol.to_lowercase();
     let url = format!(
         "https://stooq.com/q/d/l/?s={}&d1={}&d2={}&i=d",
@@ -212,7 +226,11 @@ async fn fetch_from_stooq(
 
 // 计算技术指标
 #[tauri::command]
-async fn calculate_indicators(data: Vec<StockData>) -> Result<TechnicalIndicators> {
+async fn calculate_indicators(data: Vec<StockData>) -> Result<TechnicalIndicators, String> {
+    to_string_error(calculate_indicators_inner(data))
+}
+
+fn calculate_indicators_inner(data: Vec<StockData>) -> anyhow::Result<TechnicalIndicators> {
     if data.len() < 20 {
         return Err(anyhow::anyhow!("Not enough data to calculate indicators (need at least 20 days)"));
     }
@@ -268,7 +286,11 @@ fn calculate_ema(data: &[f64], period: usize) -> f64 {
 
 // ARIMA 预测（简化版本 - 使用移动平均和趋势分析）
 #[tauri::command]
-async fn predict_arima(data: Vec<StockData>, days: usize) -> Result<Vec<f64>> {
+async fn predict_arima(data: Vec<StockData>, days: usize) -> Result<Vec<f64>, String> {
+    to_string_error(predict_arima_inner(data, days))
+}
+
+fn predict_arima_inner(data: Vec<StockData>, days: usize) -> anyhow::Result<Vec<f64>> {
     if data.len() < 30 {
         return Err(anyhow::anyhow!("Not enough data for ARIMA prediction (need at least 30 days)"));
     }
@@ -317,7 +339,11 @@ async fn predict_arima(data: Vec<StockData>, days: usize) -> Result<Vec<f64>> {
 
 // LSTM 预测（简化版本 - 使用神经网络风格的加权平均）
 #[tauri::command]
-async fn predict_lstm(data: Vec<StockData>) -> Result<f64> {
+async fn predict_lstm(data: Vec<StockData>) -> Result<f64, String> {
+    to_string_error(predict_lstm_inner(data))
+}
+
+fn predict_lstm_inner(data: Vec<StockData>) -> anyhow::Result<f64> {
     if data.len() < 60 {
         return Err(anyhow::anyhow!("Not enough data for LSTM prediction (need at least 60 days)"));
     }
@@ -326,11 +352,8 @@ async fn predict_lstm(data: Vec<StockData>) -> Result<f64> {
     let len = closes.len();
     
     // 模拟 LSTM 的门控机制
-    // 遗忘门：决定保留多少历史信息
     let forget_weight = 0.7;
-    // 输入门：决定接受多少新信息
     let input_weight = 0.3;
-    // 输出门：决定输出多少信息
     let output_weight = 0.5;
     
     // 计算不同时间窗口的特征
@@ -353,9 +376,9 @@ async fn predict_lstm(data: Vec<StockData>) -> Result<f64> {
     
     // 基于趋势调整预测
     let trend_adjustment = if recent_trend > 0.0 && medium_trend > 0.0 {
-        1.0 + (recent_trend * 0.5).min(0.05) // 上涨趋势，最多加5%
+        1.0 + (recent_trend * 0.5).min(0.05)
     } else if recent_trend < 0.0 && medium_trend < 0.0 {
-        1.0 + (recent_trend * 0.5).max(-0.05) // 下跌趋势，最多减5%
+        1.0 + (recent_trend * 0.5).max(-0.05)
     } else {
         1.0
     };
@@ -367,7 +390,11 @@ async fn predict_lstm(data: Vec<StockData>) -> Result<f64> {
 
 // 获取可用模型列表
 #[tauri::command]
-async fn fetch_models(api_key: String, api_base: String) -> Result<Vec<ModelInfo>> {
+async fn fetch_models(api_key: String, api_base: String) -> Result<Vec<ModelInfo>, String> {
+    to_string_error(fetch_models_inner(api_key, api_base).await)
+}
+
+async fn fetch_models_inner(api_key: String, api_base: String) -> anyhow::Result<Vec<ModelInfo>> {
     if api_key.is_empty() {
         return Ok(vec![
             ModelInfo {
@@ -429,12 +456,20 @@ async fn analyze_with_ai(
     api_key: String,
     api_base: String,
     model: String,
-) -> Result<AnalysisResult> {
+) -> Result<AnalysisResult, String> {
+    to_string_error(analyze_with_ai_inner(data, api_key, api_base, model).await)
+}
+
+async fn analyze_with_ai_inner(
+    data: Vec<StockData>,
+    api_key: String,
+    api_base: String,
+    model: String,
+) -> anyhow::Result<AnalysisResult> {
     if api_key.is_empty() {
-        // 没有 API Key 时，返回本地分析结果
-        let indicators = calculate_indicators(data.clone()).await?;
-        let arima_predictions = predict_arima(data.clone(), 5).await?;
-        let lstm_prediction = predict_lstm(data.clone()).await?;
+        let indicators = calculate_indicators_inner(data.clone())?;
+        let arima_predictions = predict_arima_inner(data.clone(), 5)?;
+        let lstm_prediction = predict_lstm_inner(data.clone())?;
         
         return Ok(AnalysisResult {
             summary: "⚠️ 未配置 API Key，仅显示本地技术分析结果。\n\n配置 DeepSeek 或 OpenAI API 后可获得 AI 深度分析。".to_string(),
@@ -451,10 +486,9 @@ async fn analyze_with_ai(
 
     let client = reqwest::Client::new();
     
-    // 计算技术指标
-    let indicators = calculate_indicators(data.clone()).await?;
-    let arima_predictions = predict_arima(data.clone(), 5).await?;
-    let lstm_prediction = predict_lstm(data.clone()).await?;
+    let indicators = calculate_indicators_inner(data.clone())?;
+    let arima_predictions = predict_arima_inner(data.clone(), 5)?;
+    let lstm_prediction = predict_lstm_inner(data.clone())?;
     
     let last_5_days: Vec<&StockData> = data.iter().rev().take(5).collect();
     let data_summary = serde_json::to_string(&last_5_days)
