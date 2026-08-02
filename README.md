@@ -9,6 +9,16 @@
 [![Rust](https://img.shields.io/badge/Rust-1.70+-DEA584.svg)](https://www.rust-lang.org/)
 
 ---
+## 📸 界面预览
+
+**浅色模式**
+
+![浅色模式](screenshots/home-light.png)
+
+**深色模式**
+
+![深色模式](screenshots/home-dark.png)
+
 
 ## ✨ 功能特性
 
@@ -261,7 +271,7 @@ A:
 
 ## 👨‍💻 作者
 
-**邹源清** - [zou.yuanqing@foxmail.com](mailto:zou.yuanqing@foxmail.com)
+**邹源清** - `zou DOT yuanqing AT foxmail DOT com`
 
 - GitHub: [@zouyuanqing](https://github.com/zouyuanqing)
 
