@@ -11,7 +11,7 @@ export interface StockData {
 // 预测结果类型
 export interface PredictionResult {
   arima: number[];
-  lstm: number;
+  lstm: number[];
 }
 
 // AI 分析结果类型

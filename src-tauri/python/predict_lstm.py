@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-LSTM 预测脚本 - 通过 stdin/stdout 与 Rust 通信
+LSTM prediction script (multi-step) - communicates with Rust via stdin/stdout.
+Predicts the next `steps` closing prices using iterative (recursive) multi-step
+forecasting: each predicted value is fed back into the sliding window.
 """
 
 import sys
@@ -17,11 +19,11 @@ def main():
         import torch.nn as nn
         from sklearn.preprocessing import MinMaxScaler
 
-        # 设置随机种子
+        # Reproducibility
         torch.manual_seed(42)
         np.random.seed(42)
 
-        # 读取 stdin
+        # Read stdin
         input_data = sys.stdin.read()
         data = json.loads(input_data)
 
@@ -30,8 +32,9 @@ def main():
         epochs = data.get("epochs", 100)
         hidden_size = data.get("hidden_size", 64)
         num_layers = data.get("num_layers", 2)
+        steps = int(data.get("steps", 5))
 
-        # 检查数据量
+        # Validate data
         if len(prices) < 60:
             result = {"error": "insufficient data, need >= 60 points"}
             print(json.dumps(result))
@@ -39,15 +42,15 @@ def main():
 
         prices = np.array(prices, dtype=np.float32).reshape(-1, 1)
 
-        # 数据量不足时增加 epochs
+        # More epochs for smaller datasets
         if len(prices) < 100:
             epochs = max(epochs, 200)
 
-        # 归一化
+        # Normalize
         scaler = MinMaxScaler(feature_range=(0, 1))
         prices_scaled = scaler.fit_transform(prices)
 
-        # 构造滑动窗口样本
+        # Build sliding-window samples
         X, y = [], []
         for i in range(window_size, len(prices_scaled)):
             X.append(prices_scaled[i - window_size : i])
@@ -56,16 +59,15 @@ def main():
         X = np.array(X)
         y = np.array(y)
 
-        # 转换为 PyTorch 张量
         X_tensor = torch.FloatTensor(X)
         y_tensor = torch.FloatTensor(y)
 
-        # 80/20 分割
+        # 80/20 split
         split_idx = int(len(X) * 0.8)
         X_train, X_val = X_tensor[:split_idx], X_tensor[split_idx:]
         y_train, y_val = y_tensor[:split_idx], y_tensor[split_idx:]
 
-        # 定义 LSTM 模型
+        # Define LSTM model
         class LSTMPredictor(nn.Module):
             def __init__(self, input_size, hidden_size, num_layers):
                 super().__init__()
@@ -80,21 +82,19 @@ def main():
 
             def forward(self, x):
                 lstm_out, _ = self.lstm(x)
-                # 取最后一个时间步的输出
+                # Take the output of the last time step
                 last_output = lstm_out[:, -1, :]
                 prediction = self.fc(last_output)
                 return prediction
 
-        # 初始化模型
         model = LSTMPredictor(
             input_size=1, hidden_size=hidden_size, num_layers=num_layers
         )
 
-        # 损失函数和优化器
         criterion = nn.MSELoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-        # 训练
+        # Train
         train_loss = 0.0
         val_loss = 0.0
 
@@ -107,28 +107,33 @@ def main():
             optimizer.step()
             train_loss = loss.item()
 
-            # 验证
             model.eval()
             with torch.no_grad():
                 val_output = model(X_val)
                 val_loss = criterion(val_output, y_val).item()
 
-        # 预测：使用最后 window_size 个价格
+        # Multi-step prediction: feed predictions back iteratively
         model.eval()
         with torch.no_grad():
-            last_window = prices_scaled[-window_size:].reshape(1, window_size, 1)
-            last_window_tensor = torch.FloatTensor(last_window)
-            prediction_scaled = model(last_window_tensor).numpy()
+            current = prices_scaled[-window_size:].reshape(1, window_size, 1)
+            current_tensor = torch.FloatTensor(current)
+            preds_scaled = []
+            for _ in range(steps):
+                pred = model(current_tensor)  # shape (1, 1)
+                preds_scaled.append(float(pred.item()))
+                pred_reshaped = pred.reshape(1, 1, 1)
+                current_tensor = torch.cat(
+                    [current_tensor[:, 1:, :], pred_reshaped], dim=1
+                )
 
-            # 反归一化
-            prediction = scaler.inverse_transform(prediction_scaled)
-            prediction_value = float(prediction[0, 0])
-
-        # 确保预测值合理
-        prediction_value = max(0.0, round(prediction_value, 2))
+            predictions = scaler.inverse_transform(
+                np.array(preds_scaled).reshape(-1, 1)
+            ).reshape(-1).tolist()
+            predictions = [max(0.0, round(p, 2)) for p in predictions]
 
         result = {
-            "prediction": prediction_value,
+            "predictions": predictions,
+            "prediction": predictions[0],
             "train_loss": round(train_loss, 6),
             "val_loss": round(val_loss, 6),
         }

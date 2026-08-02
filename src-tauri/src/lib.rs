@@ -28,7 +28,7 @@ pub struct TechnicalIndicators {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PredictionResult {
     pub arima: Vec<f64>,
-    pub lstm: f64,
+    pub lstm: Vec<f64>,
 }
 
 // AI 分析结果结构
@@ -415,11 +415,11 @@ async fn predict_arima_inner(data: Vec<StockData>, days: usize) -> anyhow::Resul
 
 // LSTM 预测（调用 Python sidecar）
 #[tauri::command]
-async fn predict_lstm(data: Vec<StockData>) -> Result<f64, String> {
+async fn predict_lstm(data: Vec<StockData>) -> Result<Vec<f64>, String> {
     to_string_error(predict_lstm_inner(data).await)
 }
 
-async fn predict_lstm_inner(data: Vec<StockData>) -> anyhow::Result<f64> {
+async fn predict_lstm_inner(data: Vec<StockData>) -> anyhow::Result<Vec<f64>> {
     if data.len() < 60 {
         return Err(anyhow::anyhow!(
             "Need at least 60 data points for LSTM prediction"
@@ -435,16 +435,20 @@ async fn predict_lstm_inner(data: Vec<StockData>) -> anyhow::Result<f64> {
         "window_size": 20,
         "epochs": 100,
         "hidden_size": 64,
-        "num_layers": 2
+        "num_layers": 2,
+        "steps": 5
     });
 
     let result = call_python_script("predict_lstm.py", input).await?;
 
-    let prediction = result["prediction"]
-        .as_f64()
-        .context("Missing prediction in Python output")?;
+    let predictions: Vec<f64> = result["predictions"]
+        .as_array()
+        .context("Missing predictions in Python output")?
+        .iter()
+        .map(|v| v.as_f64().unwrap_or(0.0))
+        .collect();
 
-    Ok(prediction)
+    Ok(predictions)
 }
 
 // 获取可用模型列表
@@ -540,13 +544,13 @@ async fn analyze_with_ai_inner(
         Ok(pred) => pred,
         Err(e) => {
             eprintln!("LSTM prediction failed: {}", e);
-            0.0
+            vec![0.0; 5]
         }
     };
 
     let prediction = PredictionResult {
         arima: arima_predictions.clone(),
-        lstm: lstm_prediction,
+        lstm: lstm_prediction.clone(),
     };
 
     if api_key.is_empty() {
@@ -582,8 +586,8 @@ async fn analyze_with_ai_inner(
 ## ARIMA 预测（未来5天）
 {:?}
 
-## LSTM 预测
-{:.2}
+## LSTM 预测（未来 5 天）
+{:?}
 
 ## 要求
 请用 Markdown 格式输出，包含以下章节：

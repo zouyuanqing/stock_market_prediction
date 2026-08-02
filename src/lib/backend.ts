@@ -22,7 +22,7 @@ const S_BULL = "看多";
 const S_BULLISH = "多头排列";
 const S_PRED = "模型预测";
 const S_ARIMA = "ARIMA 未来 5 日收盘价";
-const S_LSTM = "LSTM 目标价";
+const S_LSTM = "LSTM 未来 5 日";
 const S_RISK = "风险提示";
 const S_DISCLAIMER = "本分析仅供学习参考，不构成投资建议。市场有风险，入市需谨慎。";
 const S_OSCILLATING = "震荡上行";
@@ -88,13 +88,20 @@ export function demoPredictions(symbol: string) {
     walk = walk * (1 + (prand() - 0.47) * 0.02);
     arima.push(+walk.toFixed(2));
   }
-  const lstm = +(last * (1 + (prand() - 0.45) * 0.015)).toFixed(2);
-  return { arima, lstm, last };
+  const lrand = mulberry32(hashSeed(symbol + ":lstm"));
+  let lwalk = last;
+  const lstmArr: number[] = [];
+  for (let i = 0; i < 5; i++) {
+    lwalk = lwalk * (1 + (lrand() - 0.46) * 0.018);
+    lstmArr.push(+lwalk.toFixed(2));
+  }
+  return { arima, lstm: lstmArr, last };
 }
 
 export function demoAnalysis(symbol: string): AnalysisResult {
   const { arima, lstm } = demoPredictions(symbol);
   const arimaLine = arima.map(v => `${v}`).join(" → ");
+  const lstmLine = lstm.map(v => `${v}`).join(" → ");
   const summary = [
     `# ${symbol} ${S_DEEP_ANALYSIS}`,
     "",
@@ -109,7 +116,7 @@ export function demoAnalysis(symbol: string): AnalysisResult {
     "",
     `## ${S_PRED}`,
     `- **${S_ARIMA}**?${arimaLine}??? **${arima[arima.length - 1]}**?`,
-    `- **${S_LSTM}**?**${lstm}**`,
+    `- **${S_LSTM}**?${lstmLine}（末值 **${lstm[lstm.length - 1]}**）`,
     "",
     `## ${S_RISK}`,
     `> ${S_DISCLAIMER}`,

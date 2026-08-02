@@ -74,7 +74,7 @@ ARIMA 和 LSTM 预测使用 Python Sidecar 模式：
 - Rust 通过 `tokio::process::Command` 调用 Python 脚本
 - 数据通过 stdin/stdout JSON 传递
 - 支持 pmdarima 自动 ARIMA 阶数选择
-- PyTorch LSTM 模型，2 层结构
+- PyTorch LSTM 模型（2 层），支持未来 5 日多步滚动预测
 
 ```
 ┌─────────────┐     stdin JSON      ┌─────────────────┐

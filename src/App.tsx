@@ -77,7 +77,7 @@ function App() {
       const arimaPred = await backend<number[]>("predict_arima", { data, days: 5 });
 
       // LSTM 预测
-      const lstmPred = await backend<number>("predict_lstm", { data });
+      const lstmPred = await backend<number[]>("predict_lstm", { data });
 
       setPredictions({
         arima: arimaPred,
