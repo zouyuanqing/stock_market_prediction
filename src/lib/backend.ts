@@ -78,10 +78,23 @@ export function demoStockData(symbol: string, n = 240): StockData[] {
   return out;
 }
 
-export function demoAnalysis(symbol: string): AnalysisResult {
+export function demoPredictions(symbol: string) {
   const series = demoStockData(symbol, 30);
   const last = series[series.length - 1]?.close ?? 100;
-  const p5 = +(last * 1.025).toFixed(2);
+  const prand = mulberry32(hashSeed(symbol + ":pred"));
+  let walk = last;
+  const arima: number[] = [];
+  for (let i = 0; i < 5; i++) {
+    walk = walk * (1 + (prand() - 0.47) * 0.02);
+    arima.push(+walk.toFixed(2));
+  }
+  const lstm = +(last * (1 + (prand() - 0.45) * 0.015)).toFixed(2);
+  return { arima, lstm, last };
+}
+
+export function demoAnalysis(symbol: string): AnalysisResult {
+  const { arima, lstm, last } = demoPredictions(symbol);
+  const arimaLine = arima.map(v => `${v}`).join(" → ");
   const summary = [
     `# ${symbol} ${S_DEEP_ANALYSIS}`,
     "",
@@ -95,8 +108,8 @@ export function demoAnalysis(symbol: string): AnalysisResult {
     `| MA5 / MA10 / MA20 | 152.34 / 150.12 / 146.88 | ${S_BULLISH} |`,
     "",
     `## ${S_PRED}`,
-    `- **${S_ARIMA}**?${p5} ? ${p5} ? ${p5} ? ${p5} ? **${p5}**`,
-    `- **${S_LSTM}**?**${p5}**`,
+    `- **${S_ARIMA}**?${arimaLine}??? **${arima[arima.length - 1]}**?`,
+    `- **${S_LSTM}**?**${lstm}**`,
     "",
     `## ${S_RISK}`,
     `> ${S_DISCLAIMER}`,
@@ -105,7 +118,7 @@ export function demoAnalysis(symbol: string): AnalysisResult {
     summary,
     trend: S_OSCILLATING,
     indicators: { ma5: 152.34, ma10: 150.12, ma20: 146.88, rsi: 56.4, macd: 1.24 },
-    prediction: { arima: [p5, p5, p5, p5, p5], lstm: p5 },
+    prediction: { arima, lstm },
     advice: S_DEMO_DATA,
     risk: S_DEMO_DATA,
   };
@@ -119,20 +132,17 @@ export async function backend<T>(
     return invoke<T>(cmd, args);
   }
   const symbol = String(args?.symbol ?? lastDemoSymbol);
-  const series = demoStockData(symbol, 30);
-  const last = series[series.length - 1]?.close ?? 100;
+  const { arima, lstm } = demoPredictions(symbol);
   switch (cmd) {
     case "fetch_stock_data":
       lastDemoSymbol = symbol;
       return demoStockData(symbol) as T;
     case "calculate_indicators":
       return { ma5: 152.34, ma10: 150.12, ma20: 146.88, rsi: 56.4, macd: 1.24 } as T;
-    case "predict_arima": {
-      const p = (v: number) => +(last * v).toFixed(2);
-      return [p(0.99), p(1.01), p(1.005), p(1.02), p(1.025)] as T;
-    }
+    case "predict_arima":
+      return arima as T;
     case "predict_lstm":
-      return +(last * 1.021).toFixed(2) as T;
+      return lstm as T;
     case "analyze_with_ai":
       return demoAnalysis(lastDemoSymbol) as T;
     case "fetch_models":
