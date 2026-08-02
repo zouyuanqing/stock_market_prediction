@@ -93,7 +93,7 @@ export function demoPredictions(symbol: string) {
 }
 
 export function demoAnalysis(symbol: string): AnalysisResult {
-  const { arima, lstm, last } = demoPredictions(symbol);
+  const { arima, lstm } = demoPredictions(symbol);
   const arimaLine = arima.map(v => `${v}`).join(" → ");
   const summary = [
     `# ${symbol} ${S_DEEP_ANALYSIS}`,
