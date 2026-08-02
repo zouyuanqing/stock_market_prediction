@@ -298,4 +298,10 @@ A:
 
 ## 📈 Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=zouyuanqing/stock_market_prediction&type=Date)](https://star-history.com/#zouyuanqing/stock_market_prediction&Date)
+<a href="https://www.star-history.com/?type=date&repos=zouyuanqing%2Fstock_market_prediction">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=zouyuanqing/stock_market_prediction&type=date&legend=top-left&sealed_token=LZ1Ybr-BjmKMsv1KgdLmH1jlg54nKnTUkq6_Ee9ddQMhsQt5jt0tj69KrAUtJoAkTwy2ELwPw2sV0r4HMU69fd6yMpcCSriYzC4X19wv3xP3keWjbGf9Vg" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=zouyuanqing/stock_market_prediction&type=date&legend=top-left&sealed_token=LZ1Ybr-BjmKMsv1KgdLmH1jlg54nKnTUkq6_Ee9ddQMhsQt5jt0tj69KrAUtJoAkTwy2ELwPw2sV0r4HMU69fd6yMpcCSriYzC4X19wv3xP3keWjbGf9Vg" />
+    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=zouyuanqing/stock_market_prediction&type=date&legend=top-left&sealed_token=LZ1Ybr-BjmKMsv1KgdLmH1jlg54nKnTUkq6_Ee9ddQMhsQt5jt0tj69KrAUtJoAkTwy2ELwPw2sV0r4HMU69fd6yMpcCSriYzC4X19wv3xP3keWjbGf9Vg" />
+  </picture>
+</a>
