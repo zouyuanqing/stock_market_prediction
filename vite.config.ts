@@ -5,6 +5,8 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
+  // relative base so the built demo works on GitHub Pages sub-path
+  base: "./",
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

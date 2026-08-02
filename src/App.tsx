@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { backend, isTauri } from "./lib/backend";
 import { StockChart } from "./components/StockChart";
 import { PredictionPanel } from "./components/PredictionPanel";
 import { AnalysisPanel } from "./components/AnalysisPanel";
@@ -34,10 +34,7 @@ function App() {
     
     setLoadingModels(true);
     try {
-      const modelList = await invoke<ModelInfo[]>("fetch_models", {
-        apiKey,
-        apiBase,
-      });
+      const modelList = await backend<ModelInfo[]>("fetch_models", { apiKey, apiBase });
       setModels(modelList);
       if (modelList.length > 0 && !modelList.find(m => m.id === selectedModel)) {
         setSelectedModel(modelList[0].id);
@@ -68,31 +65,19 @@ function App() {
 
     try {
       // 获取股票数据
-      const data = await invoke<StockData[]>("fetch_stock_data", {
-        symbol,
-        startDate,
-        endDate,
-        source: dataSource,
-      });
+      const data = await backend<StockData[]>("fetch_stock_data", { symbol, startDate, endDate, source: dataSource });
 
       setStockData(data);
 
       // 计算技术指标
-      const ind = await invoke<TechnicalIndicators>("calculate_indicators", {
-        data,
-      });
+      const ind = await backend<TechnicalIndicators>("calculate_indicators", { data });
       setIndicators(ind);
 
       // ARIMA 预测
-      const arimaPred = await invoke<number[]>("predict_arima", {
-        data,
-        days: 5,
-      });
+      const arimaPred = await backend<number[]>("predict_arima", { data, days: 5 });
 
       // LSTM 预测
-      const lstmPred = await invoke<number>("predict_lstm", {
-        data,
-      });
+      const lstmPred = await backend<number>("predict_lstm", { data });
 
       setPredictions({
         arima: arimaPred,
@@ -100,12 +85,7 @@ function App() {
       });
 
       // 调用 AI 分析
-      const analysisResult = await invoke<AnalysisResult>("analyze_with_ai", {
-        data,
-        apiKey,
-        apiBase,
-        model: selectedModel,
-      });
+      const analysisResult = await backend<AnalysisResult>("analyze_with_ai", { data, apiKey, apiBase, model: selectedModel });
       setAnalysis(analysisResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -117,6 +97,13 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Header />
+      {!isTauri && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800">
+          <div className="container mx-auto px-4 py-2 text-sm text-yellow-800 dark:text-yellow-200">
+            🧪 浏览器演示模式：当前展示模拟数据，桌面版（Tauri）将调用真实行情与 AI 分析
+          </div>
+        </div>
+      )}
       
       <main className="container mx-auto px-4 py-8">
         {/* API 配置区域 */}

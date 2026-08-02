@@ -8,7 +8,16 @@
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-FFC131.svg)](https://tauri.app/)
 [![Rust](https://img.shields.io/badge/Rust-1.70+-DEA584.svg)](https://www.rust-lang.org/)
 
+## 🚀 在线演示
+
+[![Live Demo](https://img.shields.io/badge/在线演示-Live%20Demo-blue)](https://zouyuanqing.github.io/stock_market_prediction/)
+
+浏览器直接体验：**https://zouyuanqing.github.io/stock_market_prediction/**
+
+> 网页版为演示模式（模拟数据）；桌面版（Tauri）调用真实行情与 DeepSeek AI 分析。
+
 ---
+
 ## 📸 界面预览
 
 **浅色模式**
