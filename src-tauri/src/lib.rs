@@ -1,4 +1,5 @@
 use anyhow::Context;
+use fin_primitives::signals::batch_f64;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::process::Command as AsyncCommand;
@@ -320,9 +321,9 @@ async fn calculate_indicators(data: Vec<StockData>) -> Result<TechnicalIndicator
 }
 
 fn calculate_indicators_inner(data: Vec<StockData>) -> anyhow::Result<TechnicalIndicators> {
-    if data.len() < 20 {
+    if data.len() < 26 {
         return Err(anyhow::anyhow!(
-            "Not enough data to calculate indicators (need at least 20 days)"
+            "Not enough data to calculate indicators (need at least 26 days)"
         ));
     }
 
@@ -333,31 +334,9 @@ fn calculate_indicators_inner(data: Vec<StockData>) -> anyhow::Result<TechnicalI
     let ma10 = closes[len - 10..].iter().sum::<f64>() / 10.0;
     let ma20 = closes[len - 20..].iter().sum::<f64>() / 20.0;
 
-    let mut gains = Vec::new();
-    let mut losses = Vec::new();
-    for i in 1..len {
-        let change = closes[i] - closes[i - 1];
-        if change > 0.0 {
-            gains.push(change);
-            losses.push(0.0);
-        } else {
-            gains.push(0.0);
-            losses.push(-change);
-        }
-    }
+    let rsi = *batch_f64::rsi(&closes, 14).last().unwrap();
 
-    let avg_gain = gains.iter().sum::<f64>() / gains.len() as f64;
-    let avg_loss = losses.iter().sum::<f64>() / losses.len() as f64;
-    let rs = if avg_loss == 0.0 {
-        100.0
-    } else {
-        avg_gain / avg_loss
-    };
-    let rsi = 100.0 - (100.0 / (1.0 + rs));
-
-    let ema12 = calculate_ema(&closes, 12);
-    let ema26 = calculate_ema(&closes, 26);
-    let macd = ema12 - ema26;
+    let macd = *batch_f64::macd(&closes, 12, 26, 9).0.last().unwrap();
 
     Ok(TechnicalIndicators {
         ma5,
@@ -366,17 +345,6 @@ fn calculate_indicators_inner(data: Vec<StockData>) -> anyhow::Result<TechnicalI
         rsi,
         macd,
     })
-}
-
-fn calculate_ema(data: &[f64], period: usize) -> f64 {
-    let multiplier = 2.0 / (period as f64 + 1.0);
-    let mut ema = data[0];
-
-    for i in 1..data.len() {
-        ema = (data[i] - ema) * multiplier + ema;
-    }
-
-    ema
 }
 
 // ARIMA 预测（调用 Python sidecar）
@@ -676,4 +644,34 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bars(closes: &[f64]) -> Vec<StockData> {
+        closes
+            .iter()
+            .map(|&c| StockData {
+                date: String::new(),
+                open: c,
+                high: c,
+                low: c,
+                close: c,
+                volume: 0,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn rsi_reflects_recent_14_bars_not_whole_history() {
+        // 40 days of decline, then 14 days of steady gains.
+        let mut closes: Vec<f64> = (0..40).map(|i| 200.0 - i as f64).collect();
+        closes.extend((1..=14).map(|i| 161.0 + i as f64));
+        let ind = calculate_indicators_inner(bars(&closes)).unwrap();
+        // The old whole-history average read about 26 (oversold) here.
+        assert!(ind.rsi > 50.0, "rsi = {}", ind.rsi);
+        assert!(ind.macd.is_finite());
+    }
 }
